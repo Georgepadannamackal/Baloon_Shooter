@@ -137,8 +137,9 @@ exports.initializeState = function() {
 
 exports.updateState = function(key) {
   return function(value) {
-    return function() {
+     return function() {
       window.APP_STATE[key] = value;
+      console.log("APP STATE",window.APP_STATE)
 
       return window.APP_STATE;
     }

@@ -23,7 +23,7 @@ foreign import getLatestMachine :: forall m a b eff. Eff eff (Step m a b)
 foreign import storeMachine :: forall eff m a b. Step m a b -> Eff eff Unit
 foreign import getRootNode :: forall eff. Eff eff Document
 foreign import insertDom :: forall a b eff. a -> b -> Eff eff Unit
-foreign import attachSignalEvents :: forall a b eff.  String ->  (b ->  Eff (frp::F.FRP | eff) Unit) -> Unit
+foreign import attachSignalEvents :: forall a b c eff.  String -> (b ->  Eff (frp::F.FRP | eff) Unit) -> Unit
 foreign import initializeState :: forall eff t . Eff eff Unit
 foreign import updateState :: forall eff a b t. a  -> b -> Eff eff (Rec t)
 foreign import getState :: forall eff t. Eff eff (Rec t)
@@ -77,7 +77,7 @@ render dom listen = do
 signal id initialValue = do
   o <- E.create
   let behavior = B.step initialValue o.event
-  let x = attachSignalEvents id o.push
+  let x = attachSignalEvents id  o.push 
   pure $ {behavior : behavior , event : o.event}
 
 patch dom behavior events = do

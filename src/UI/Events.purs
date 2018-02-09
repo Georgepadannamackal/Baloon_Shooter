@@ -11,3 +11,6 @@ domName st = Tuple "domName" st
 
 onClick :: AttrValue -> Prop
 onClick some = Tuple "onClick" some
+
+onChange :: AttrValue -> Prop
+onChange some = Tuple "onChange" some

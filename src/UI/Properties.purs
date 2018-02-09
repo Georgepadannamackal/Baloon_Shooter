@@ -25,6 +25,9 @@ background = prop "background"
 margin :: String -> Prop
 margin = prop "margin"
 
+padding :: String -> Prop
+padding = prop "padding"
+
 color :: String -> Prop
 color = prop "color"
 
@@ -36,3 +39,8 @@ bg = prop "bg"
 
 gravity :: String -> Prop
 gravity = prop "gravity"
+
+orientation :: String -> Prop
+orientation = prop "orientation"
+
+
