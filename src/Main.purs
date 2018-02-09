@@ -82,7 +82,7 @@ widget state = linearLayout
                         , height "20"
                         , width "match_parent"
                         , text "LOGIN"
-                        , fontStyle "SourceSansPro-Regular"
+                        , fontStyle "Source Sans Pro-Regular"
                         , gravity "center"
                        ]
 
