@@ -14,6 +14,7 @@ import Control.Monad.Eff.Exception (stack)
 import Control.Plus ((<|>))
 import DOM.HTML.Event.ErrorEvent (lineNo)
 import DOM.HTML.History (back)
+import Data.Array (group)
 import FRP as F
 import FRP.Event as E
 import Halogen.VDom.Types (graft)
@@ -27,58 +28,67 @@ widget state = linearLayout
               [ id_ "1"
               , height "match_parent"
               , width "match_parent"
-              , background "#A4D3EE"
+              , background "#76b852"
               , gravity "center"
               , orientation "vertical"
               ]
-              [ textView
-                  [
-                    id_ "2"
-                  , height "30"
-                  , width "100"
+              [
+                  linearLayout
+                  [id_ "8"
+                  , height "300"
+                  , width "400"
+                  , background "#ffffff"
                   , gravity "center"
-                  , text "User Name"
-                  ],
-                editText
-                  [
-                    id_ "3"
-                  , height "30"
-                  , width "200"
-                  , text ""
-                  , padding "10,10,10,10"
-                  , onChange (Some change)
-                  ],
-                textView
-                  [
-                    id_ "4"
-                  , height "30"
-                  , width "200"
-                  , gravity "center"
-                  , margin "0,20,0,0"
-                  , text "Password"
-                  ],
-                editText
-                  [
-                    id_ "5"
-                  , height "30"
-                  , width "200"
-                  , padding "10,10,10,10"
-                  , text ""
-                  , onChange (Some change)
-                  ],
-                linearLayout
-                  [
-                    id_ "6"
-                  , height "20"
-                  , width "100"
-                  , background (state.background)
-                  , margin "0,20,0,0"
-                  , text "Login"
-                  , gravity "center"
-                  , color "#ffffff"
-                  , onClick (Some click)
+                  , orientation "vertical"
                   ]
-                  []
+                  [
+                    editText
+                      [
+                        id_ "3"
+                      , height "50"
+                      , width "250"
+                      , text ""
+                      , padding "10,10,10,10"
+                      , onChange (Some change)
+                      , hint "username"
+                      ],
+                    editText
+                      [
+                        id_ "5"
+                      , height "50"
+                      , width "250"
+                      , margin "0,20,0,0"
+                      , padding "40,0,0,0"
+                      , text ""
+                      , stroke "#fff,0"
+                      , onChange (Some change)
+                      , hint "password"
+                      ],
+                    linearLayout
+                      [
+                        id_ "6"
+                      , height "40"
+                      , width "250"
+                      , background (state.background)
+                      , margin "0,20,0,0"
+                      , gravity "center"
+                      , color "#ffffff"
+                      , onClick (Some click)
+                      ]
+                      [
+                       textView
+                       [
+                          id_ "7"
+                        , height "20"
+                        , width "match_parent"
+                        , text "LOGIN"
+                        , fontStyle "SourceSansPro-Regular"
+                        , gravity "center"
+                       ]
+
+                      ]
+                   ]
+                   
                   ]
 
 main = do
@@ -105,7 +115,7 @@ eval x y = do
 
       if s
           then
-           U.updateState "background" "blue"
+           U.updateState "background" "#43A047"
         else
            U.updateState "background" "#C0C0C0"
 

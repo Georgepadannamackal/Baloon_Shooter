@@ -43,4 +43,22 @@ gravity = prop "gravity"
 orientation :: String -> Prop
 orientation = prop "orientation"
 
+fontStyle :: String -> Prop
+fontStyle = prop "fontStyle"
+
+textSize :: String -> Prop
+textSize = prop "textSize"
+
+textWeight :: String -> Prop
+textWeight = prop "textWeight"
+
+cornerRadius :: String -> Prop
+cornerRadius = prop "cornerRadius"
+
+hint :: String -> Prop
+hint = prop "hint"
+
+stroke :: String -> Prop
+stroke = prop "stroke"
+
 
