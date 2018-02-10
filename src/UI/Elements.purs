@@ -1,11 +1,26 @@
 module UI.Elements
 	( Node
 	, Leaf
-    , element
-    , linearLayout
-    , relativeLayout
-    , textView
-    , editText
+  , element
+  , linearLayout
+  , relativeLayout
+  , textView
+  , editText
+  , scrollView
+  , imageView
+  , button
+  , listView
+  , checkBox
+  , horizontalScrollView
+  , progressBar
+  , viewPager
+  , calendar
+  , frameLayout
+  , shimmerFrameLayout
+  , switch
+  , tabLayout
+  , viewWidget
+  , webView
 	) where
 
 import Prelude
@@ -47,8 +62,6 @@ horizontalScrollView = node "horizontalScrollView"
 scrollView :: forall i. Node Attr i
 scrollView = node "scrollView"
 
-
-
 imageView :: forall i. Leaf Attr i
 imageView = leaf "imageView"
 
@@ -64,6 +77,32 @@ progressBar = leaf "progressBar"
 textView :: forall i. Leaf Attr i
 textView = leaf "textView"
 
-viewPager :: forall i. Leaf Attr i
-viewPager = leaf "viewPager"
+viewPager :: forall i. Node Attr i
+viewPager = node "viewPager"
 
+button :: forall i. Leaf Attr i
+button = leaf "button"
+
+calendar :: forall i. Leaf Attr i
+calendar = leaf "calendar"
+
+checkBox :: forall i. Leaf Attr i
+checkBox = leaf "checkBox"
+
+frameLayout :: forall i. Node Attr i
+frameLayout = node "frameLayout"
+
+shimmerFrameLayout :: forall i. Node Attr i
+shimmerFrameLayout = node "shimmerFrameLayout"
+
+switch :: forall i. Leaf Attr i
+switch = leaf "switch"
+
+tabLayout :: forall i. Node Attr i
+tabLayout = node "tabLayout"
+
+viewWidget :: forall i. Leaf Attr i
+viewWidget = leaf "viewWidget"
+
+webView :: forall i. Leaf Attr i
+webView = leaf "webView"

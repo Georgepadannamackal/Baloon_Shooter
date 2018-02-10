@@ -1,7 +1,7 @@
 module Main where
 
 import Data.String
-import Data.String
+import Halogen.VDom.Types
 import Prelude
 import Types
 import UI.Elements
@@ -24,7 +24,16 @@ import UI.Util as U
 foreign import click :: MEvent
 foreign import change :: MEvent
 
-widget state = linearLayout
+widget :: forall a b. {background :: String |b} -> VDom Attr a
+
+widget state = scrollView
+                  [ id_ "100"
+                  , height "match_parent"
+                  , width "match_parent"
+                  ]
+                  [
+
+              linearLayout
               [ id_ "1"
               , height "match_parent"
               , width "match_parent"
@@ -33,6 +42,8 @@ widget state = linearLayout
               , orientation "vertical"
               ]
               [
+                  
+                  
                   linearLayout
                   [id_ "8"
                   , height "300"
@@ -88,7 +99,7 @@ widget state = linearLayout
 
                       ]
                    ]
-                   
+                   ]
                   ]
 
 main = do
