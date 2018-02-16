@@ -56,6 +56,7 @@ function updateAttribute (element, attribute) {
 
 exports.click = function() {}
 exports.change = function() {}
+exports.mouseDown = function() {}
 
 function insertDom(root) {
   return function(dom) {

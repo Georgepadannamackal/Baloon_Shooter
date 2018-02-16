@@ -14,3 +14,6 @@ onClick some = Tuple "onClick" some
 
 onChange :: AttrValue -> Prop
 onChange some = Tuple "onChange" some
+
+onMouseDown :: AttrValue -> Prop
+onMouseDown some = Tuple "onMouseDown" some
