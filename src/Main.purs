@@ -15,6 +15,7 @@ import Control.Monad.Eff.Class (liftEff)
 import Control.Monad.Eff.Console (CONSOLE, log, logShow)
 import Control.Monad.Eff.Random (RANDOM, randomInt)
 import Control.Plus ((<|>))
+import DOM.HTML.HTMLMediaElement.CanPlayType (maybe)
 import DOM.HTML.HTMLProgressElement (position)
 import DOM.Node.Document (doctype)
 import Data.Int (toNumber)
@@ -36,15 +37,16 @@ foreign import click :: MEvent
 foreign import change :: MEvent
 
 type Baloon = {
-  x  :: Int
-, y  :: Int
-, id :: String
+  x     :: Int
+, y     :: Int
+, id    :: String
+, poped :: Boolean
 }
 
 type Arrow ={
-  x   :: Eff(random::RANDOM) Int
-, y   :: Eff(random::RANDOM) Int
-, id  :: String
+  x    :: Int
+, y    :: Int
+, id   :: String
 , shot :: Boolean
 }
 
@@ -53,10 +55,12 @@ type Bow ={
 }
 
 type StateType = {
-   baloon :: Array Baloon
-,  arrow  :: Array Arrow
-,  bow    :: Bow
-,  y      :: Int
+   baloon    :: Array Baloon
+,  arrow     :: Array Arrow
+,  bow       :: Bow
+,  shotCount :: Int
+,  y         :: Int
+,  x         :: Int
 }
 
 widget s = linearLayout
@@ -75,6 +79,7 @@ widget s = linearLayout
                   , background "#ffffff"
                   ]
                     ((baloonDraw s <$> s.baloon)<>
+                     (arrowDraw s <$> s.arrow)<>
                     [
                     linearLayout
                     [id_ "bowup"
@@ -101,9 +106,19 @@ widget s = linearLayout
                     []
                   ])
                ]
---baloonVal:: Int -> Eff(random :: RANDOM) Baloon
+
 baloonVal a =
   randomInt 50 850 >>= \n -> pure{ x: n, y: (toNumber( n * n ) % 1000.0), id: ("b" <> (toString (toNumber a)))}
+
+arrowVal a = {x:1000,y:0,id:"a"<>(toString (toNumber a)),shot:false}
+
+arrowSot check a
+  | a.id == check = {x:a.x,y:a.y,id:a.id,shot:true }
+  | otherwise = a
+
+
+arrowNSt a = {x:1000,y:0,id:"a"<>(toString (toNumber a)),shot:false }
+
 
 baloonDraw s idpos =
               imageView
@@ -113,13 +128,24 @@ baloonDraw s idpos =
               , margin ((toString (toNumber (idpos.x)))<>","<>(toString ((900.0 - toNumber (s.y - idpos.y) % 900.0 - 100.0)))<>",0,0")
               , imageUrl "baloon"
               ]
+
+arrowDraw s id = imageView
+            [ id_ id.id
+            , width "60"
+            , height "7"
+            , margin ((toString (toNumber id.x))<>","<>(toString (toNumber (id.y + 47) ))<>",0,0")
+            , imageUrl "arrow"
+            ]
+
 --traverse :: ∀ a b m t. Traversable t ⇒ Applicative m ⇒ (a → m b) → t a → m (t b)
 resetGame = do
   (s::StateType) <- U.getState
   a <- (traverse baloonVal (1 .. 10))
   _ <- U.updateState "baloon" a
   _ <- U.updateState "y" 0
-  _ <- U.updateState "arrow" [{id:"a1",x:0,y:0}]
+  _ <- U.updateState "x" 0
+  _ <- U.updateState "arrow" (arrowVal <$> (1..5))
+  _ <- U.updateState "shotCount" 0
   logShow 23
   U.updateState "bow" {y: 0}
 
@@ -129,19 +155,32 @@ main = do
   U.render (widget state) listen
   pure unit
 
+
+arrowShoot a
+  |a.shot = {x : a.x - 2, y: a.y, id: a.id, shot: a.shot}
+  |otherwise = a
+
 --eval :: ∀ t45 t50 t51. t45 → Eff t50 { | t51 }
 eval l = do
   (s :: StateType) <- U.getState
   _ <- U.updateState "y" (s.y + 2)
   if l
-    then
-      U.updateState "arrow" s.arrow
+    then do
+      U.updateState "arrow" (arrowShoot <$> s.arrow)
     else
       U.updateState "arrow" s.arrow
 
+eval0 l = do
+  (s :: StateType) <- U.getState
+  if l
+    then do
+      _ <- U.updateState "shotCount" (s.shotCount + 1)
+      U.updateState "arrow" ((arrowSot ("a"<> (toString $ toNumber s.shotCount))) <$> s.arrow)
+    else
+      U.updateState "showCount" (s.shotCount + 1)
 
 eval1 l =do
-  s <- U.getState
+  (s :: StateType) <- U.getState
   if l
     then do
       U.updateState "bow" {y:(s.bow.y - 20)}
@@ -149,7 +188,7 @@ eval1 l =do
       U.updateState "bow" s.arrow
 
 eval2 l =do
-  s <- U.getState
+  (s :: StateType) <- U.getState
   if l
     then do
       U.updateState "bow" {y:(s.bow.y + 20)}
@@ -166,12 +205,16 @@ listen = do
   let behavior = eval <$> shoot.behavior
   let events = (animationFrame)
 
+  let behavior0 = eval0 <$> shoot.behavior
+  let events0 = (shoot.event)
+
   let behavior1 = eval1 <$> bu.behavior
   let events1 = (bu.event)
 
   let behavior2 = eval2 <$> bd.behavior
   let events2 = (bd.event)
 
+  _ <- U.patch widget behavior0 events0
   _ <- U.patch widget behavior1 events1
   _ <- U.patch widget behavior2 events2
   U.patch widget behavior events
