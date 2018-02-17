@@ -29,6 +29,7 @@ import FRP.Event as E
 import FRP.Event.Mouse (down)
 import FRP.Event.Time (animationFrame)
 import FRP.Event.Time as T
+import Main1 (arrow)
 import UI.Core (MEvent, AttrValue(..), Attr(..), Prop)
 import UI.Properties (width, height)
 import UI.Util as U
@@ -116,9 +117,9 @@ arrowSot check a
   | a.id == check = {x:a.x,y:a.y,id:a.id,shot:true }
   | otherwise = a
 
-
-arrowNSt a = {x:1000,y:0,id:"a"<>(toString (toNumber a)),shot:false }
-
+arrowYUpdater bowY a
+  | a.shot = a
+  | otherwise = {x:a.x,y:bowY,id:a.id,shot:a.shot }
 
 baloonDraw s idpos =
               imageView
@@ -183,7 +184,8 @@ eval1 l =do
   (s :: StateType) <- U.getState
   if l
     then do
-      U.updateState "bow" {y:(s.bow.y - 20)}
+      (s :: StateType) <- U.updateState "bow" {y:(s.bow.y - 20)}
+      U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
     else
       U.updateState "bow" s.arrow
 
@@ -191,7 +193,8 @@ eval2 l =do
   (s :: StateType) <- U.getState
   if l
     then do
-      U.updateState "bow" {y:(s.bow.y + 20)}
+      (s :: StateType) <- U.updateState "bow" {y:(s.bow.y + 20)}
+      U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
     else
       U.updateState "bow" s.bow
 
