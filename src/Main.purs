@@ -1,5 +1,4 @@
 module Main where
-import DOM (DOM)
 import Data.Array
 import Data.Int
 import Data.Maybe
@@ -14,7 +13,7 @@ import UI.Properties
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, logShow)
 import Control.Monad.Eff.Random (RANDOM, randomInt)
---import Control.Plus ((<|>))
+import DOM (DOM)
 import Data.Number.Format (toString)
 import Data.Traversable (traverse)
 import FRP (FRP)
@@ -26,6 +25,7 @@ import FRP.Event.Mouse (down)
 import FRP.Event.Time (animationFrame)
 import FRP.Event.Time as T
 import Halogen.VDom (VDom)
+import Main1 (arrow)
 import UI.Core (MEvent, AttrValue(..), Attr(..), Prop)
 import UI.Properties (width, height)
 import UI.Util as U
@@ -46,7 +46,16 @@ arrowHeight  :: Int
 arrowHeight  =  7
 
 arrowCount   :: Int
-arrowCount   =  10
+arrowCount   =  25
+
+baloonCount  :: Int
+baloonCount  = 5
+
+baloonSpeed  :: Int
+baloonSpeed  = 4
+
+arrowSpeed   :: Int
+arrowSpeed   = 8
 
 type Baloon = {
   x     :: Int
@@ -80,9 +89,10 @@ type StateType = {
 ,  arrow     :: Array Arrow
 ,  bow       :: Bow
 ,  shotCount :: Int
+,  score     :: Int
 }
 
-widget :: forall a. { baloon ∷ Array Baloon , arrow ∷ Array Arrow , bow ∷ Bow , shotCount ∷ Int } → VDom Attr a
+widget :: forall a. { baloon ∷ Array Baloon , arrow ∷ Array Arrow , bow ∷ Bow , shotCount ∷ Int ,score :: Int} → VDom Attr a
 widget s = linearLayout
                 [  id_ "1"
                   , height "match_parent"
@@ -101,6 +111,11 @@ widget s = linearLayout
                     ((baloonDraw s <$> s.baloon)<>
                      (arrowDraw s <$> s.arrow)<>
                     [
+                    textView
+                    [ id_ "Score Board"
+                    , text (("Score :\n") <> (toString $ toNumber s.score))
+                    ]
+                    ,
                     linearLayout
                     [id_ "bowup"
                     , width "50"
@@ -167,10 +182,11 @@ arrowDraw s id = imageView
 resetGame :: forall a b. Eff(random :: RANDOM, console :: CONSOLE | a) { |b }
 resetGame = do
   (s::StateType) <- U.getState
-  a <- (traverse baloonVal (1 .. 10))
+  a <- (traverse baloonVal (1 .. baloonCount))
   _ <- U.updateState "baloon" a
   _ <- U.updateState "arrow" (arrowVal <$> (1.. arrowCount))
   _ <- U.updateState "shotCount" 0
+  _ <- U.updateState "score" 0
   logShow 23
   U.updateState "bow" {y: 0}
 
@@ -183,28 +199,29 @@ main = do
 
 baloonCollision :: Baloon -> Arrow -> Baloon
 baloonCollision bal arr
-  | (((bal.x > arr.x) && (bal.x < (arr.x + arrowWidth))) || ((arr.x > bal.x) && (arr.x < (bal.x + baloonWidth)))) && (((bal.y < arr.y) && (bal.y > (arr.y - arrowHeight))) || ((arr.y < bal.y) && (arr.y > (bal.y + baloonHeight)))) = {x: bal.x , y: (bal.y - 2), id: bal.id, image : "empty",poped : true}
+  | (((bal.x > arr.x) && (bal.x < (arr.x + arrowWidth))) || ((arr.x > bal.x) && (arr.x < (bal.x + baloonWidth)))) && ((bal.y < (arr.y + 47)) && ((bal.y + baloonHeight) > (arr.y + 47))) = {x: bal.x , y: 900, id: bal.id, image : "empty",poped : true}
   | bal.y < -100  = {x: bal.x , y: 900, id: bal.id,image : bal.image, poped : bal.poped}
-  | otherwise = {x: bal.x , y: (bal.y - 2), id: bal.id, image : bal.image,poped : bal.poped}
-
--- baloonMove :: Baloon -> Baloon
--- baloonMove bal
---   |bal.y < -100  = {x: bal.x , y: 900, id: bal.id,image : bal.image, poped : bal.poped}
---   |otherwise      = {x: bal.x , y: (bal.y - 2), id: bal.id, image: bal.image,poped : bal.poped}
+  | bal.y <  900  = {x: bal.x , y: (bal.y - baloonSpeed), id: bal.id,image : "baloon", poped : false}
+  | otherwise = {x: bal.x , y: (bal.y - baloonSpeed), id: bal.id, image : bal.image,poped : bal.poped}
 
 arrowShoot :: Arrow -> Arrow
 arrowShoot a
-  |a.shot = {x : a.x - 2, y: a.y, id: a.id, shot: a.shot}
+  |a.shot = {x : a.x - arrowSpeed, y: a.y, id: a.id, shot: a.shot}
   |otherwise = a
 
+scoreUpdater:: Baloon -> Int
+scoreUpdater a
+  | a.poped = 10
+  | otherwise = 0
 
 eval :: forall t50 t51. Boolean → Eff t50 { | t51 }
 eval l = do
   (s :: StateType) <- U.getState
-  -- _ <- U.updateState "baloon" (baloonMove <$> s.baloon)
   let c = sortBy baloonSort (baloonCollision <$> s.baloon <*> s.arrow)
   let d = nubBy baloonEqual c
-  _ <- U.updateState "baloon" d --(baloonMove <$> s.baloon)
+  let f = foldl (+) s.score (scoreUpdater <$> d)
+  (s :: StateType) <- U.updateState "baloon" d
+  (s :: StateType) <- U.updateState "score" f
   if l
     then
       U.updateState "arrow" (arrowShoot <$> s.arrow)
