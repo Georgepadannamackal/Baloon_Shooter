@@ -1,33 +1,23 @@
 module Main where
-import Data.Array
-import Data.Int
-import Data.Maybe
-import Data.String
-import Math
 import Prelude
-import Types
-import UI.Elements
-import UI.Events
-import UI.Properties
 
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, logShow)
 import Control.Monad.Eff.Random (RANDOM, randomInt)
 import DOM (DOM)
+import Data.Array (foldl, nubBy, sortBy, (..))
+import Data.Int (toNumber)
 import Data.Number.Format (toString)
 import Data.Traversable (traverse)
 import FRP (FRP)
-import FRP as F
-import FRP.Behavior (behavior)
-import FRP.Behavior.Mouse as Mouse
 import FRP.Event as E
-import FRP.Event.Mouse (down)
+import FRP.Event.Keyboard (down)
 import FRP.Event.Time (animationFrame)
-import FRP.Event.Time as T
 import Halogen.VDom (VDom)
-import Main1 (arrow)
-import UI.Core (MEvent, AttrValue(..), Attr(..), Prop)
-import UI.Properties (width, height)
+import UI.Core (MEvent, AttrValue(Some), Attr)
+import UI.Elements (imageView, linearLayout, relativeLayout, textView)
+import UI.Events (onClick)
+import UI.Properties (background, height, id_, imageUrl, margin, text, width, textSize, centerInParent)
 import UI.Util as U
 
 foreign import click :: MEvent
@@ -90,70 +80,107 @@ type StateType = {
 ,  bow       :: Bow
 ,  shotCount :: Int
 ,  score     :: Int
-,  scorePos  :: {x :: Int, y :: Int}
+,  scorePos  :: {x :: String, y :: String}
 ,  arrows    :: Int
 }
 
-widget :: forall a. { baloon ∷ Array Baloon , arrow ∷ Array Arrow , bow ∷ Bow , shotCount ∷ Int ,score :: Int, arrows :: Int, scorePos :: {x :: Int, y :: Int}} → VDom Attr a
+widget :: forall a. StateType → VDom Attr a
 widget s = relativeLayout
                 [  id_ "1"
                   , height "match_parent"
                   , width "match_parent"
-                  , background "#00FF00"
-                  , gravity "center"
-                  , orientation "vertical"
                 ]
                 [
-                  textView
-                  [ id_ "Instructions"
-                  , text "How to Play :\n1. Pop as many baloons as \n\tpossible using 25 arrows\n2.Release arrows by clicking\n on the bow\n3.Move bow Up and Down\n clicking above or below it\n4.The game is over when you \nrun out of arrows"
-                  , margin "-200, 200, 0, 0"
-                  ]
-                  ,
-                  textView
-                  [ id_ "Arrow Count"
-                  , text (("Arrows :\n") <> (toString $ toNumber s.arrows))
-                  , margin "1100, 0, 0, 0"
-                  ]
-                  ,
+                 imageView
+                  [ id_ "background"
+                  , width "match_parent"
+                  , height "match_parent"
+                  , imageUrl "background"
+                  ],
                   relativeLayout
-                  [ id_ "2"
-                  , height "800"
-                  , width "1000"
-                  , background "#ffffff"
+                  [
+                    id_ "gameHolder"
+                  , width "900"
+                  , height "match_parent"
+                  , centerInParent "true,-1"
                   ]
-                    ((baloonDraw s <$> s.baloon)<>
-                     (arrowDraw s <$> s.arrow)<>
-                    [
+                  [
                     textView
-                    [ id_ "Score Board"
-                    , text (("Score :\n") <> (toString $ toNumber s.score))
+                    [ id_ "Instructions"
+                    , width "200"
+                    , height "900"
+                    , text "How to Play :\n1. Pop as many baloons as \n\tpossible using 25 arrows\n2.Release arrows by clicking\n on the bow\n3.Move bow Up and Down\n clicking above or below it\n4.The game is over when you \nrun out of arrows"
+                    , margin "-200, 200, 0, 0"
                     ]
                     ,
-                    linearLayout
-                    [id_ "bowup"
-                    , width "50"
-                    , height "850"
-                    , onClick (Some click)
-                    , margin ( "1000,"<>(toString (toNumber (s.bow.y - 800)))<>",0,0")]
-                    [],
-                    imageView
-                    [
-                      id_ "bow"
-                    , width "50"
-                    , height "100"
-                    , onClick (Some click)
-                    , margin ( "1000,"<>(toString (toNumber s.bow.y))<>",0,0")
-                    , imageUrl "bow"
+                    textView
+                    [ id_ "Arrow Count"
+                    , width "200"
+                    , height "50"
+                    , text (("Arrows :\n") <> (toString $ toNumber s.arrows))
+                    , margin "1100, 0, 0, 0"
                     ]
-                    ,linearLayout
-                    [id_ "bowdn"
-                    , width "50"
-                    , height "800"
-                    , onClick (Some click)
-                    , margin ( "1000,"<>(toString (toNumber (s.bow.y + 50)))<>",0,0")]
-                    []
-                  ])
+                    ,
+                    relativeLayout
+                    [ id_ "2"
+                    , height "match_parent"
+                    , width "1000"
+                    , background "#ffffff"
+                    ]
+                      ((baloonDraw s <$> s.baloon)<>
+                       (arrowDraw s <$> s.arrow)<>
+                      [
+                      textView
+                      [ id_ "Score Board"
+                      , text (("Game Over\n\n\nScore :\n") <> (toString $ toNumber s.score))
+                      , textSize "20"
+                      , width "100"
+                      , height "50"
+                      , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
+                      ]
+                      ,textView
+                      [ id_ "ScorePart1"
+                      , text (("Game Over\n\n\nScore :\n") <> (toString $ toNumber s.score))
+                      , textSize "20"
+                      , width "100"
+                      , height "50"
+                      , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
+                      ]
+                      ,textView
+                      [ id_ "ScorePart2"
+                      , text (("Game Over\n\n\nScore :\n") <> (toString $ toNumber s.score))
+                      , textSize "20"
+                      , width "100"
+                      , height "50"
+                      , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
+                      ]
+                      ,
+                      linearLayout
+                      [id_ "bowup"
+                      , width "50"
+                      , height "850"
+                      , onClick (Some click)
+                      , margin ( "1000,"<>(toString (toNumber (s.bow.y - 800)))<>",0,0")]
+                      [],
+                      imageView
+                      [
+                        id_ "bow"
+                      , width "50"
+                      , height "100"
+                      , onClick (Some click)
+                      , margin ( "1000,"<>(toString (toNumber s.bow.y))<>",0,0")
+                      , imageUrl "bow"
+                      ]
+                      ,linearLayout
+                      [id_ "bowdn"
+                      , width "50"
+                      , height "800"
+                      , onClick (Some click)
+                      , margin ( "1000,"<>(toString (toNumber (s.bow.y + 50)))<>",0,0")]
+                      []
+                    ])
+
+                  ]
                ]
 
 baloonVal ::forall a. Int -> Eff(random :: RANDOM | a) Baloon
@@ -204,6 +231,7 @@ resetGame = do
   _ <- U.updateState "shotCount" 0
   _ <- U.updateState "score" 0
   _ <- U.updateState "arrows" arrowCount
+  _ <- U.updateState "scorePos" {x: "0", y:"-50"}
   logShow 23
   U.updateState "bow" {y: 320}
 
@@ -246,7 +274,12 @@ eval l = do
   let f = foldl (+) s.score (scoreUpdater <$> d)
   (s :: StateType) <- U.updateState "baloon" d
   (s :: StateType) <- U.updateState "score" f
-  U.updateState "arrow" (arrowShoot <$> s.arrow)
+  _ <- U.updateState "arrow" (arrowShoot <$> s.arrow)
+  if s.arrows == 0
+    then
+      U.updateState "scorePos" {x: "440", y: "300"}
+    else
+      U.updateState "scorePos" s.scorePos
 
 eval0 :: forall a b. Boolean -> Eff a { | b }
 eval0 l = do
@@ -281,10 +314,29 @@ eval2 l =do
 
 listen :: forall t133. Eff ( random::RANDOM,frp ∷ FRP , console ∷ CONSOLE | t133 ) (Eff (random::RANDOM, frp ∷ FRP , console ∷ CONSOLE | t133 ) Unit )
 listen = do
-  state <- resetGame
+  (state :: StateType) <- resetGame
   shoot <- U.signal "bow" false
   bu    <- U.signal "bowup" false
   bd    <- U.signal "bowdn" false
+  _<- down `E.subscribe` (\key -> void $ case key of
+      38 -> do
+            _ <- U.updateState "bow" {y:(state.bow.y - 20)}
+            _ <-U.updateState "arrow" ((arrowYUpdater state.bow.y) <$> state.arrow)
+            U.getState
+      40 -> do
+            _ <- U.updateState "bow" {y:(state.bow.y + 20)}
+            _ <-U.updateState "arrow" ((arrowYUpdater state.bow.y) <$> state.arrow)
+            U.getState
+      32 ->
+            if (state.arrows /= 0)
+            then do
+              _ <- U.updateState "shotCount" (state.shotCount + 1)
+              _ <- U.updateState "arrows" (state.arrows - 1)
+              U.updateState "arrow" ((arrowSot ("a"<> (toString $ toNumber state.shotCount))) <$> state.arrow)
+            else
+              U.updateState "showCount" (state.shotCount)
+      _  -> U.getState
+    )
 
   let behavior = eval <$> shoot.behavior
   let events = (animationFrame)

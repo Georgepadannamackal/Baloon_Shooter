@@ -56,6 +56,8 @@ focus = prop "focus"
 fillViewport :: String -> Prop
 fillViewport = prop "fillViewport"
 
+centerInParent :: String -> Prop
+centerInParent = prop "centerInParent"
 
 setDate :: String -> Prop
 setDate = prop "setDate"
