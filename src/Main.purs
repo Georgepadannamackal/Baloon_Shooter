@@ -90,10 +90,12 @@ type StateType = {
 ,  bow       :: Bow
 ,  shotCount :: Int
 ,  score     :: Int
+,  scorePos  :: {x :: Int, y :: Int}
+,  arrows    :: Int
 }
 
-widget :: forall a. { baloon ∷ Array Baloon , arrow ∷ Array Arrow , bow ∷ Bow , shotCount ∷ Int ,score :: Int} → VDom Attr a
-widget s = linearLayout
+widget :: forall a. { baloon ∷ Array Baloon , arrow ∷ Array Arrow , bow ∷ Bow , shotCount ∷ Int ,score :: Int, arrows :: Int, scorePos :: {x :: Int, y :: Int}} → VDom Attr a
+widget s = relativeLayout
                 [  id_ "1"
                   , height "match_parent"
                   , width "match_parent"
@@ -102,6 +104,18 @@ widget s = linearLayout
                   , orientation "vertical"
                 ]
                 [
+                  textView
+                  [ id_ "Instructions"
+                  , text "How to Play :\n1. Pop as many baloons as \n\tpossible using 25 arrows\n2.Release arrows by clicking\n on the bow\n3.Move bow Up and Down\n clicking above or below it\n4.The game is over when you \nrun out of arrows"
+                  , margin "-200, 200, 0, 0"
+                  ]
+                  ,
+                  textView
+                  [ id_ "Arrow Count"
+                  , text (("Arrows :\n") <> (toString $ toNumber s.arrows))
+                  , margin "1100, 0, 0, 0"
+                  ]
+                  ,
                   relativeLayout
                   [ id_ "2"
                   , height "800"
@@ -142,12 +156,14 @@ widget s = linearLayout
                   ])
                ]
 
---baloonVal ::forall a. Int -> Eff(random :: RANDOM | a) Baloon
+baloonVal ::forall a. Int -> Eff(random :: RANDOM | a) Baloon
 baloonVal a =
-  randomInt 50 850 >>= \n -> pure{ x: n, y: (toNumber( n * n ) % 1000.0), id: ("b" <> (toString (toNumber a))), image: "baloon",poped: false}
+  randomInt 0 85 >>= \n ->
+    randomInt 0 85 >>= \m ->
+        pure{ x: n * 10, y: (m * 10) + 900, id: ("b" <> (toString (toNumber a))), image: "baloon",poped: false}
 
 arrowVal :: Int -> Arrow
-arrowVal a = {x:1000,y:0,id:"a"<>(toString (toNumber a)),shot:false}
+arrowVal a = {x:1000,y:320,id:"a"<>(toString (toNumber a)),shot:false}
 
 arrowSot :: String -> Arrow -> Arrow
 arrowSot check a
@@ -187,8 +203,9 @@ resetGame = do
   _ <- U.updateState "arrow" (arrowVal <$> (1.. arrowCount))
   _ <- U.updateState "shotCount" 0
   _ <- U.updateState "score" 0
+  _ <- U.updateState "arrows" arrowCount
   logShow 23
-  U.updateState "bow" {y: 0}
+  U.updateState "bow" {y: 320}
 
 main :: forall a. Eff(random :: RANDOM, console :: CONSOLE, frp ::FRP, dom ::DOM |a) Unit
 main = do
@@ -214,29 +231,33 @@ scoreUpdater a
   | a.poped = 10
   | otherwise = 0
 
-eval :: forall t50 t51. Boolean → Eff t50 { | t51 }
+randomizeBaloonRespawn :: forall a. StateType -> Baloon -> Eff(random :: RANDOM | a) Baloon
+randomizeBaloonRespawn s bal
+  | s.arrows == 0 && bal.y == 900 = pure {x: bal.x , y: -200, id: bal.id,image : bal.image, poped : false}
+  | bal.y == 900  = randomInt 0 85 >>= \n -> pure {x: (n * 10) , y: (bal.y - baloonSpeed), id: bal.id,image : "baloon", poped : false}
+  | otherwise     = pure bal
+
+eval :: forall t50 t51. Boolean → Eff (random :: RANDOM|t50) { | t51 }
 eval l = do
   (s :: StateType) <- U.getState
-  let c = sortBy baloonSort (baloonCollision <$> s.baloon <*> s.arrow)
+  e <- (traverse (randomizeBaloonRespawn s) s.baloon)
+  let c = sortBy baloonSort (baloonCollision <$> e <*> s.arrow)
   let d = nubBy baloonEqual c
   let f = foldl (+) s.score (scoreUpdater <$> d)
   (s :: StateType) <- U.updateState "baloon" d
   (s :: StateType) <- U.updateState "score" f
-  if l
-    then
-      U.updateState "arrow" (arrowShoot <$> s.arrow)
-    else
-      U.updateState "arrow" s.arrow
+  U.updateState "arrow" (arrowShoot <$> s.arrow)
 
 eval0 :: forall a b. Boolean -> Eff a { | b }
 eval0 l = do
   (s :: StateType) <- U.getState
-  if l
+  if l && (s.arrows /= 0)
     then do
       _ <- U.updateState "shotCount" (s.shotCount + 1)
+      _ <- U.updateState "arrows" (s.arrows - 1)
       U.updateState "arrow" ((arrowSot ("a"<> (toString $ toNumber s.shotCount))) <$> s.arrow)
     else
-      U.updateState "showCount" (s.shotCount + 1)
+      U.updateState "showCount" (s.shotCount)
 
 eval1 :: forall a b. Boolean -> Eff a { | b }
 eval1 l =do
