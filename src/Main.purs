@@ -10,6 +10,7 @@ import Data.Int (toNumber)
 import Data.Number.Format (toString)
 import Data.Traversable (traverse)
 import FRP (FRP)
+-- import FRP.Behavior.Keyboard (key) --Might USE
 import FRP.Event as E
 import FRP.Event.Keyboard as K
 import FRP.Event.Time (animationFrame)
@@ -19,70 +20,21 @@ import UI.Elements (imageView, linearLayout, relativeLayout, textView)
 import UI.Events (onClick)
 import UI.Properties (background, height, id_, imageUrl, margin, text, width, textSize, centerInParent)
 import UI.Util as U
+import Game.Types (Arrow, Baloon, StateType)
+import Game.Values (arrowCount, arrowSpeed, arrowWidth, baloonCount,baloonSpeed,baloonWidth,baloonHeight)
+import Game.WidgetElements(arrowDraw, baloonDraw)
 
 foreign import click :: MEvent
 foreign import change :: MEvent
 
-baloonWidth  :: Int
-baloonWidth  =  50
-
-baloonHeight :: Int
-baloonHeight =  100
-
-arrowWidth   :: Int
-arrowWidth   =  60
-
-arrowHeight  :: Int
-arrowHeight  =  7
-
-arrowCount   :: Int
-arrowCount   =  25
-
-baloonCount  :: Int
-baloonCount  = 5
-
-baloonSpeed  :: Int
-baloonSpeed  = 4
-
-arrowSpeed   :: Int
-arrowSpeed   = 8
-
-type Baloon = {
-  x     :: Int
-, y     :: Int
-, id    :: String
-, image :: String
-, poped :: Boolean
-}
 
 baloonSort :: Baloon -> Baloon -> Ordering
 baloonSort a b
   | a.id /= b.id = (compare a.id b.id)
-  | otherwise = (compare b.poped a.poped)
+  | otherwise = (compare b.popped a.popped)
 
 baloonEqual :: Baloon -> Baloon -> Boolean
-baloonEqual a b = (a.id == b.id)-- && (a.poped == b.poped)
-
-type Arrow ={
-  x    :: Int
-, y    :: Int
-, id   :: String
-, shot :: Boolean
-}
-
-type Bow ={
-  y    :: Int
-}
-
-type StateType = {
-   baloon    :: Array Baloon
-,  arrow     :: Array Arrow
-,  bow       :: Bow
-,  shotCount :: Int
-,  score     :: Int
-,  scorePos  :: {x :: String, y :: String}
-,  arrows    :: Int
-}
+baloonEqual a b = (a.id == b.id)-- && (a.popped == b.popped)
 
 widget :: forall a. StateType → VDom Attr a
 widget s = relativeLayout
@@ -118,7 +70,10 @@ widget s = relativeLayout
                     , width "250"
                     , height "900"
                     , textSize "20"
-                    , text "1. Pop as many baloons as possible using 25 arrows\n2.Release arrows by clicking on the bow or Pressing Space\n3.Move bow Up and Down by clicking above & below it or Using arrow Keys\n4.The game is over when you run out of arrows"
+                    , text """1. Pop as many baloons as possible using 25 arrows
+                            2.Release arrows by clicking on the bow or Pressing Space
+                            3.Move bow Up and Down by clicking above & below it or Using arrow Keys
+                            4.The game is over when you run out of arrows"""
                     , margin "-250, 150, 0, 0"
                     ]
                     ,
@@ -181,39 +136,20 @@ baloonVal ::forall a. Int -> Eff(random :: RANDOM | a) Baloon
 baloonVal a =
   randomInt 0 85 >>= \n ->
     randomInt 0 85 >>= \m ->
-        pure{ x: n * 10, y: (m * 10) + 900, id: ("b" <> (toString (toNumber a))), image: "baloon",poped: false}
+        pure{ x: n * 10, y: (m * 10) + 900, id: ("b" <> (toString (toNumber a))), image: "baloon",popped: false}
 
 arrowVal :: Int -> Arrow
 arrowVal a = {x:1000,y:320,id:"a"<>(toString (toNumber a)),shot:false}
 
 arrowSot :: String -> Arrow -> Arrow
 arrowSot check a
-  | a.id == check = {x:a.x,y:a.y,id:a.id,shot:true }
+  | a.id == check = a{shot=true }
   | otherwise = a
 
 arrowYUpdater :: Int -> Arrow -> Arrow
 arrowYUpdater bowY a
   | a.shot = a
-  | otherwise = {x:a.x,y:bowY,id:a.id,shot:a.shot }
-
-baloonDraw :: forall a. StateType -> Baloon -> VDom Attr a
-baloonDraw s idpos =
-              imageView
-              [id_ idpos.id
-              , width "50"
-              , height "100"
-              , margin ((toString (toNumber (idpos.x)))<>","<>(toString ((toNumber (idpos.y))))<>",0,0")
-              , imageUrl idpos.image
-              ]
-
-arrowDraw :: forall a. StateType -> Arrow -> VDom Attr a
-arrowDraw s id = imageView
-            [ id_ id.id
-            , width "60"
-            , height "7"
-            , margin ((toString (toNumber id.x))<>","<>(toString (toNumber (id.y + 47) ))<>",0,0")
-            , imageUrl "arrow"
-            ]
+  | otherwise = a{y=bowY}
 
 --traverse :: ∀ a b m t. Traversable t ⇒ Applicative m ⇒ (a → m b) → t a → m (t b)
 resetGame :: forall a b. Eff(random :: RANDOM, console :: CONSOLE | a) { |b }
@@ -238,29 +174,33 @@ main = do
 
 baloonCollision :: Baloon -> Arrow -> Baloon
 baloonCollision bal arr
-  | (((bal.x > arr.x) && (bal.x < (arr.x + arrowWidth))) || ((arr.x > bal.x) && (arr.x < (bal.x + baloonWidth)))) && ((bal.y < (arr.y + 47)) && ((bal.y + baloonHeight) > (arr.y + 47))) = {x: bal.x , y: 900, id: bal.id, image : "empty",poped : true}
-  | bal.y < -100  = {x: bal.x , y: 900, id: bal.id,image : bal.image, poped : bal.poped}
-  | bal.y <  900  = {x: bal.x , y: (bal.y - baloonSpeed), id: bal.id,image : "baloon", poped : false}
-  | otherwise = {x: bal.x , y: (bal.y - baloonSpeed), id: bal.id, image : bal.image,poped : bal.poped}
+  | (((bal.x > arr.x) && (bal.x < (arr.x + arrowWidth)))
+    || ((arr.x > bal.x) && (arr.x < (bal.x + baloonWidth))))
+    && ((bal.y < (arr.y + 47))
+    && ((bal.y + baloonHeight) > (arr.y + 47))) = bal { y= 900,image = "empty",popped = true}
+  | bal.y < -100  = bal {y = 900}
+  | bal.y <  900  = bal { y= (bal.y - baloonSpeed), image = "baloon", popped = false}
+  | otherwise = bal{y = (bal.y - baloonSpeed)}
 
 arrowShoot :: Arrow -> Arrow
 arrowShoot a
-  |a.shot = {x : a.x - arrowSpeed, y: a.y, id: a.id, shot: a.shot}
+  |a.shot = a {x = a.x - arrowSpeed}
   |otherwise = a
 
 scoreUpdater:: Baloon -> Int
 scoreUpdater a
-  | a.poped = 10
+  | a.popped = 10
   | otherwise = 0
 
 randomizeBaloonRespawn :: forall a. StateType -> Baloon -> Eff(random :: RANDOM | a) Baloon
 randomizeBaloonRespawn s bal
-  | s.arrows == 0 && bal.y == 900 = pure {x: bal.x , y: -200, id: bal.id,image : bal.image, poped : false}
-  | bal.y == 900  = randomInt 0 85 >>= \n -> pure {x: (n * 10) , y: (bal.y - baloonSpeed), id: bal.id,image : "baloon", poped : false}
+  | s.arrows == 0 && bal.y == 900 = pure {x: bal.x , y: -200, id: bal.id,image : bal.image, popped : false}
+  | bal.y == 900  = randomInt 0 85 >>= \n -> pure {x: (n * 10) , y: (bal.y - baloonSpeed), id: bal.id,image : "baloon", popped : false}
   | otherwise     = pure bal
 
-eval :: forall t50 t51. Boolean → Eff (random :: RANDOM|t50) { | t51 }
-eval l = do
+
+continousEvaluation :: forall t50 t51. Boolean → Eff (random :: RANDOM|t50) { | t51 }
+continousEvaluation l = do
   (s :: StateType) <- U.getState
   e <- (traverse (randomizeBaloonRespawn s) s.baloon)
   let c = sortBy baloonSort (baloonCollision <$> e <*> s.arrow)
@@ -275,8 +215,8 @@ eval l = do
     else
       U.updateState "scorePos" s.scorePos
 
-eval0 :: forall a b. Boolean -> Eff a { | b }
-eval0 l = do
+shotEvaluation :: forall a b. Boolean -> Eff a { | b }
+shotEvaluation l = do
   (s :: StateType) <- U.getState
   if (l) && (s.arrows /= 0)
     then do
@@ -286,8 +226,8 @@ eval0 l = do
     else
       U.updateState "showCount" (s.shotCount)
 
-eval1 :: forall a b. Boolean -> Eff a { | b }
-eval1 l=do
+bowMoverUpEvaluation :: forall a b. Boolean -> Eff a { | b }
+bowMoverUpEvaluation l=do
   (s :: StateType) <- U.getState
   if (l)
     then do
@@ -296,8 +236,8 @@ eval1 l=do
     else
       U.updateState "bow" s.arrow
 
-eval2 :: forall a b. Boolean -> Eff a { | b }
-eval2 l=do
+bowMoverDownEvaluation :: forall a b. Boolean -> Eff a { | b }
+bowMoverDownEvaluation l=do
   (s :: StateType) <- U.getState
   if (l)
     then do
@@ -310,8 +250,8 @@ listen :: forall t133. Eff ( random::RANDOM,frp ∷ FRP , console ∷ CONSOLE | 
 listen = do
   (state :: StateType) <- resetGame
   shoot <- U.signal "bow" false
-  bu    <- U.signal "bowup" false
-  bd    <- U.signal "bowdn" false
+  btnUp <- U.signal "bowup" false
+  btnDn <- U.signal "bowdn" false
   _<- K.down `E.subscribe` (\key -> void $ case key of
       38 -> do
             _ <- U.updateState "bow" {y:(state.bow.y - 20)}
@@ -332,18 +272,19 @@ listen = do
       _  -> U.getState
     )
 
+  -- let keyboardBehavior = eval <$> (key 32) <*> (key 38)
 
-  let behavior = eval <$> shoot.behavior
+  let behavior = continousEvaluation <$> shoot.behavior
   let events = (animationFrame)
 
-  let behavior0 = eval0 <$> shoot.behavior
+  let behavior0 = shotEvaluation <$> shoot.behavior
   let events0 = (shoot.event)
   --
-  let behavior1 = eval1 <$> bu.behavior
-  let events1 = (bu.event)
+  let behavior1 = bowMoverUpEvaluation <$> btnUp.behavior
+  let events1 = (btnUp.event)
 
-  let behavior2 = eval2 <$> bd.behavior
-  let events2 = (bd.event)
+  let behavior2 = bowMoverDownEvaluation <$> btnDn.behavior
+  let events2 = (btnDn.event)
 
   _ <- U.patch widget behavior0 events0
   _ <- U.patch widget behavior1 events1
