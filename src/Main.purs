@@ -1,4 +1,6 @@
 module Main where
+import Control.Alt
+import FRP.Behavior.Keyboard
 import Prelude
 
 import Control.Monad.Eff (Eff)
@@ -11,7 +13,8 @@ import Data.Number.Format (toString)
 import Data.Traversable (traverse)
 import FRP (FRP)
 import FRP.Event as E
-import FRP.Event.Keyboard (down)
+import FRP.Event.Keyboard as K
+import FRP.Event.Mouse as M
 import FRP.Event.Time (animationFrame)
 import Halogen.VDom (VDom)
 import UI.Core (MEvent, AttrValue(Some), Attr)
@@ -106,19 +109,20 @@ widget s = relativeLayout
                   ]
                   [
                     textView
-                    [ id_ "Instructions"
-                    , width "200"
+                    [ id_ "InstructionsHeading"
+                    , width "250"
                     , height "900"
-                    , text "How to Play :\n1. Pop as many baloons as \n\tpossible using 25 arrows\n2.Release arrows by clicking\n on the bow\n3.Move bow Up and Down\n clicking above or below it\n4.The game is over when you \nrun out of arrows"
-                    , margin "-200, 200, 0, 0"
+                    , textSize "25"
+                    , text "HOW TO PLAY :"
+                    , margin "-250, 100, 0, 0"
                     ]
-                    ,
-                    textView
-                    [ id_ "Arrow Count"
-                    , width "200"
-                    , height "50"
-                    , text (("Arrows :\n") <> (toString $ toNumber s.arrows))
-                    , margin "1100, 0, 0, 0"
+                    ,textView
+                    [ id_ "Instructions"
+                    , width "250"
+                    , height "900"
+                    , textSize "20"
+                    , text "1. Pop as many baloons as possible using 25 arrows\n2.Release arrows by clicking on the bow\n3.Move bow Up and Down by clicking above or below it\n4.The game is over when you \nrun out of arrows"
+                    , margin "-250, 150, 0, 0"
                     ]
                     ,
                     relativeLayout
@@ -131,29 +135,38 @@ widget s = relativeLayout
                        (arrowDraw s <$> s.arrow)<>
                       [
                       textView
+                      [ id_ "Arrow Count"
+                      , width "200"
+                      , height "50"
+                      , textSize "30"
+                      , text (("Arrows :") <> (toString $ toNumber s.arrows))
+                      , margin "850, 0, 0, 0"
+                      ]
+                      ,
+                      textView
                       [ id_ "Score Board"
-                      , text (("Game Over\n\n\nScore :\n") <> (toString $ toNumber s.score))
-                      , textSize "20"
-                      , width "100"
+                      , text (("GAME OVER\nSCORE : \t\t") <> (toString $ toNumber s.score))
+                      , textSize "30"
+                      , width "350"
                       , height "50"
                       , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
                       ]
-                      ,textView
-                      [ id_ "ScorePart1"
-                      , text (("Game Over\n\n\nScore :\n") <> (toString $ toNumber s.score))
-                      , textSize "20"
-                      , width "100"
-                      , height "50"
-                      , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
-                      ]
-                      ,textView
-                      [ id_ "ScorePart2"
-                      , text (("Game Over\n\n\nScore :\n") <> (toString $ toNumber s.score))
-                      , textSize "20"
-                      , width "100"
-                      , height "50"
-                      , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
-                      ]
+                      -- ,textView
+                      -- [ id_ "ScorePart1"
+                      -- , text (("GAME OVER\n\n\nScore :\n") <> (toString $ toNumber s.score))
+                      -- , textSize "20"
+                      -- , width "100"
+                      -- , height "50"
+                      -- , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
+                      -- ]
+                      -- ,textView
+                      -- [ id_ "ScorePart2"
+                      -- , text (("Game Over\n\n\nScore :\n") <> (toString $ toNumber s.score))
+                      -- , textSize "20"
+                      -- , width "100"
+                      -- , height "50"
+                      -- , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
+                      -- ]
                       ,
                       linearLayout
                       [id_ "bowup"
@@ -231,7 +244,7 @@ resetGame = do
   _ <- U.updateState "shotCount" 0
   _ <- U.updateState "score" 0
   _ <- U.updateState "arrows" arrowCount
-  _ <- U.updateState "scorePos" {x: "0", y:"-50"}
+  _ <- U.updateState "scorePos" {x: "0", y:"-30"}
   logShow 23
   U.updateState "bow" {y: 320}
 
@@ -284,7 +297,7 @@ eval l = do
 eval0 :: forall a b. Boolean -> Eff a { | b }
 eval0 l = do
   (s :: StateType) <- U.getState
-  if l && (s.arrows /= 0)
+  if (l) && (s.arrows /= 0)
     then do
       _ <- U.updateState "shotCount" (s.shotCount + 1)
       _ <- U.updateState "arrows" (s.arrows - 1)
@@ -293,9 +306,9 @@ eval0 l = do
       U.updateState "showCount" (s.shotCount)
 
 eval1 :: forall a b. Boolean -> Eff a { | b }
-eval1 l =do
+eval1 l=do
   (s :: StateType) <- U.getState
-  if l
+  if (l)
     then do
       (s :: StateType) <- U.updateState "bow" {y:(s.bow.y - 20)}
       U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
@@ -303,9 +316,9 @@ eval1 l =do
       U.updateState "bow" s.arrow
 
 eval2 :: forall a b. Boolean -> Eff a { | b }
-eval2 l =do
+eval2 l=do
   (s :: StateType) <- U.getState
-  if l
+  if (l)
     then do
       (s :: StateType) <- U.updateState "bow" {y:(s.bow.y + 20)}
       U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
@@ -318,7 +331,7 @@ listen = do
   shoot <- U.signal "bow" false
   bu    <- U.signal "bowup" false
   bd    <- U.signal "bowdn" false
-  _<- down `E.subscribe` (\key -> void $ case key of
+  _<- K.down `E.subscribe` (\key -> void $ case key of
       38 -> do
             _ <- U.updateState "bow" {y:(state.bow.y - 20)}
             _ <-U.updateState "arrow" ((arrowYUpdater state.bow.y) <$> state.arrow)
@@ -338,12 +351,13 @@ listen = do
       _  -> U.getState
     )
 
+
   let behavior = eval <$> shoot.behavior
   let events = (animationFrame)
 
   let behavior0 = eval0 <$> shoot.behavior
   let events0 = (shoot.event)
-
+  --
   let behavior1 = eval1 <$> bu.behavior
   let events1 = (bu.event)
 
