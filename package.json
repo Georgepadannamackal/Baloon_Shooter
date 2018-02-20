@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "start": "webpack-dev-server --content-base dist/ --host 0.0.0.0"
+    "start": "webpack-dev-server --content-base dist/ --host 0.0.0.0",
+    "compile": "webpack --progress --color"
   },
   "dependencies": {
     "babel": "^6.23.0",

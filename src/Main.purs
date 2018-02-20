@@ -1,6 +1,4 @@
 module Main where
-import Control.Alt
-import FRP.Behavior.Keyboard
 import Prelude
 
 import Control.Monad.Eff (Eff)
@@ -14,7 +12,6 @@ import Data.Traversable (traverse)
 import FRP (FRP)
 import FRP.Event as E
 import FRP.Event.Keyboard as K
-import FRP.Event.Mouse as M
 import FRP.Event.Time (animationFrame)
 import Halogen.VDom (VDom)
 import UI.Core (MEvent, AttrValue(Some), Attr)
@@ -121,7 +118,7 @@ widget s = relativeLayout
                     , width "250"
                     , height "900"
                     , textSize "20"
-                    , text "1. Pop as many baloons as possible using 25 arrows\n2.Release arrows by clicking on the bow\n3.Move bow Up and Down by clicking above or below it\n4.The game is over when you \nrun out of arrows"
+                    , text "1. Pop as many baloons as possible using 25 arrows\n2.Release arrows by clicking on the bow or Pressing Space\n3.Move bow Up and Down by clicking above & below it or Using arrow Keys\n4.The game is over when you run out of arrows"
                     , margin "-250, 150, 0, 0"
                     ]
                     ,
@@ -151,22 +148,6 @@ widget s = relativeLayout
                       , height "50"
                       , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
                       ]
-                      -- ,textView
-                      -- [ id_ "ScorePart1"
-                      -- , text (("GAME OVER\n\n\nScore :\n") <> (toString $ toNumber s.score))
-                      -- , textSize "20"
-                      -- , width "100"
-                      -- , height "50"
-                      -- , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
-                      -- ]
-                      -- ,textView
-                      -- [ id_ "ScorePart2"
-                      -- , text (("Game Over\n\n\nScore :\n") <> (toString $ toNumber s.score))
-                      -- , textSize "20"
-                      -- , width "100"
-                      -- , height "50"
-                      -- , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
-                      -- ]
                       ,
                       linearLayout
                       [id_ "bowup"
