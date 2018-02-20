@@ -5,24 +5,23 @@ import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Console (CONSOLE, logShow)
 import Control.Monad.Eff.Random (RANDOM, randomInt)
 import DOM (DOM)
+import FRP.Behavior.Keyboard (key)
 import Data.Array (foldl, nubBy, sortBy, (..))
 import Data.Int (toNumber)
 import Data.Number.Format (toString)
 import Data.Traversable (traverse)
 import FRP (FRP)
--- import FRP.Behavior.Keyboard (key) --Might USE
-import FRP.Event as E
 import FRP.Event.Keyboard as K
 import FRP.Event.Time (animationFrame)
+import Game.Types (Arrow, Baloon, StateType)
+import Game.Values (arrowCount, arrowSpeed, arrowWidth, baloonCount, baloonSpeed, baloonWidth, baloonHeight)
+import Game.WidgetElements (arrowDraw, baloonDraw)
 import Halogen.VDom (VDom)
 import UI.Core (MEvent, AttrValue(Some), Attr)
 import UI.Elements (imageView, linearLayout, relativeLayout, textView)
 import UI.Events (onClick)
 import UI.Properties (background, height, id_, imageUrl, margin, text, width, textSize, centerInParent)
 import UI.Util as U
-import Game.Types (Arrow, Baloon, StateType)
-import Game.Values (arrowCount, arrowSpeed, arrowWidth, baloonCount,baloonSpeed,baloonWidth,baloonHeight)
-import Game.WidgetElements(arrowDraw, baloonDraw)
 
 foreign import click :: MEvent
 foreign import change :: MEvent
@@ -246,47 +245,46 @@ bowMoverDownEvaluation l=do
     else
       U.updateState "bow" s.bow
 
+keyboardEvaluation :: forall a b. Boolean -> Boolean -> Boolean -> Eff a { | b }
+keyboardEvaluation a b c = do
+  (s :: StateType) <- U.getState
+  _ <- if (a) && (s.arrows /= 0)
+      then do
+        _ <- U.updateState "shotCount" (s.shotCount + 1)
+        _ <- U.updateState "arrows" (s.arrows - 1)
+        U.updateState "arrow" ((arrowSot ("a"<> (toString $ toNumber s.shotCount))) <$> s.arrow)
+      else
+        U.updateState "showCount" (s.shotCount)
+  _ <- if (b)
+        then do
+          (s :: StateType) <- U.updateState "bow" {y:(s.bow.y - 20)}
+          U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
+        else
+          U.updateState "bow" s.bow
+  if (c)
+    then do
+      (s :: StateType) <- U.updateState "bow" {y:(s.bow.y + 20)}
+      U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
+    else
+      U.updateState "bow" s.bow
+
+
 listen :: forall t133. Eff ( random::RANDOM,frp ∷ FRP , console ∷ CONSOLE | t133 ) (Eff (random::RANDOM, frp ∷ FRP , console ∷ CONSOLE | t133 ) Unit )
 listen = do
   (state :: StateType) <- resetGame
   shoot <- U.signal "bow" false
   btnUp <- U.signal "bowup" false
   btnDn <- U.signal "bowdn" false
-  _<- K.down `E.subscribe` (\key -> void $ case key of
-      38 -> do
-            _ <- U.updateState "bow" {y:(state.bow.y - 20)}
-            _ <-U.updateState "arrow" ((arrowYUpdater state.bow.y) <$> state.arrow)
-            U.getState
-      40 -> do
-            _ <- U.updateState "bow" {y:(state.bow.y + 20)}
-            _ <-U.updateState "arrow" ((arrowYUpdater state.bow.y) <$> state.arrow)
-            U.getState
-      32 ->
-            if (state.arrows /= 0)
-            then do
-              _ <- U.updateState "shotCount" (state.shotCount + 1)
-              _ <- U.updateState "arrows" (state.arrows - 1)
-              U.updateState "arrow" ((arrowSot ("a"<> (toString $ toNumber state.shotCount))) <$> state.arrow)
-            else
-              U.updateState "showCount" (state.shotCount)
-      _  -> U.getState
-    )
 
-  -- let keyboardBehavior = eval <$> (key 32) <*> (key 38)
+  let keyboardBehavior = keyboardEvaluation <$> (key 32) <*> (key 38) <*> (key 40)
 
   let behavior = continousEvaluation <$> shoot.behavior
-  let events = (animationFrame)
-
   let behavior0 = shotEvaluation <$> shoot.behavior
-  let events0 = (shoot.event)
-  --
   let behavior1 = bowMoverUpEvaluation <$> btnUp.behavior
-  let events1 = (btnUp.event)
-
   let behavior2 = bowMoverDownEvaluation <$> btnDn.behavior
-  let events2 = (btnDn.event)
 
-  _ <- U.patch widget behavior0 events0
-  _ <- U.patch widget behavior1 events1
-  _ <- U.patch widget behavior2 events2
-  U.patch widget behavior events
+  _ <- U.patch widget keyboardBehavior K.down
+  _ <- U.patch widget behavior0 shoot.event
+  _ <- U.patch widget behavior1 btnUp.event
+  _ <- U.patch widget behavior2 btnDn.event
+  U.patch widget behavior animationFrame
