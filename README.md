@@ -16,4 +16,4 @@ Output:
 
 https://georgepadannamackal.github.io/BalloonShooter/
 
-![GIF](http://www.giphy.com/gifs/AiqHlbge3tACsYsNEI)
+![GIF](https://media.giphy.com/media/AiqHlbge3tACsYsNEI/giphy.gif)
