@@ -14,4 +14,5 @@ Goto https://localhost:8080
 
 Output:
 
-https://georgepadannamackal.github.io
+https://georgepadannamackal.github.io/BalloonShooter/
+
