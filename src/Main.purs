@@ -1,148 +1,290 @@
 module Main where
-
-import Data.Maybe
-import Data.Tuple
 import Prelude
 
-import Control.Monad.Eff (Eff, foreachE)
-import Control.Monad.Eff.Console (CONSOLE, log)
-import DOM.Node.Types (Document, Element, Node)
-import Data.Foreign (Foreign)
-import Data.Foreign.Class (class Decode, class Encode, encode)
-import Data.Foreign.Generic (defaultOptions, genericDecode, genericEncode)
-import Data.Generic.Rep (class Generic)
-import Data.Generic.Rep.Show (genericShow)
-import FRP.Event (Event, subscribe)
-import Halogen.VDom (ElemName(..), ElemSpec(..), Machine, Step(..), VDom(..), VDomMachine, VDomSpec(..), buildVDom, extract)
-import Halogen.VDom.Machine (never, Machine(..), step, extract)
+import Control.Monad.Eff (Eff)
+import Control.Monad.Eff.Console (CONSOLE, logShow)
+import Control.Monad.Eff.Random (RANDOM, randomInt)
+import DOM (DOM)
+import FRP.Behavior.Keyboard (key)
+import Data.Array (foldl, nubBy, sortBy, (..))
+import Data.Int (toNumber)
+import Data.Number.Format (toString)
+import Data.Traversable (traverse)
+import FRP (FRP)
+import FRP.Event.Keyboard as K
+import FRP.Event.Time (animationFrame)
+import Game.Types (Arrow, Baloon, StateType)
+import Game.Values (arrowCount, arrowSpeed, arrowWidth, baloonCount, baloonSpeed, baloonWidth, baloonHeight)
+import Game.WidgetElements (arrowDraw, baloonDraw)
+import Halogen.VDom (VDom)
+import UI.Core (MEvent, AttrValue(Some), Attr)
+import UI.Elements (imageView, linearLayout, relativeLayout, textView)
+import UI.Events (onClick)
+import UI.Properties (background, height, id_, imageUrl, margin, text, width, textSize, centerInParent)
+import UI.Util as U
 
-import UI.Core (MEvent, AttrValue(..), Attr(..), Prop)
-import UI.Elements
-import UI.Properties
-import UI.Events
+foreign import click :: MEvent
+foreign import change :: MEvent
 
-foreign import done :: forall eff. Eff eff Unit
-foreign import getRootNode :: forall eff. Eff eff Document
-foreign import onClick :: MEvent
-foreign import logMy :: forall a eff. a -> Eff eff Unit
-foreign import insertDom :: forall a b eff. a -> b -> Eff eff Unit
 
-foreign import applyAttributes ∷ forall eff. Element → Attr → Eff eff Unit
-foreign import patchAttributes ∷ forall eff. Element → Attr → Attr → Eff eff Unit
-foreign import cleanupAttributes ∷ forall eff. Element → Attr → Eff eff Unit
+baloonSort :: Baloon -> Baloon -> Ordering
+baloonSort a b
+  | a.id /= b.id = (compare a.id b.id)
+  | otherwise = (compare b.popped a.popped)
 
-foreign import attachSub :: forall a. Foreign -> Event { id :: String | a}
+baloonEqual :: Baloon -> Baloon -> Boolean
+baloonEqual a b = (a.id == b.id)-- && (a.popped == b.popped)
 
-data Screen = FirstScreen Int | SecondScreen Int
-
-derive instance genericFirstScreen :: Generic Screen _
-instance encodeFirstScreen :: Encode Screen where
-  encode = genericEncode (defaultOptions {unwrapSingleConstructors = false})
-instance decodeFirstScreen :: Decode Screen where
-  decode = genericDecode (defaultOptions {unwrapSingleConstructors = false})
-
-instance showScreen :: Show Screen where
-  show = genericShow
-
-buildAttributes
-  ∷ ∀ eff a
-  . Element
-  → VDomMachine eff Attr Unit
-buildAttributes elem = apply
-  where
-  apply ∷ forall eff. VDomMachine eff Attr Unit
-  apply attrs = do
-    applyAttributes elem attrs
-    pure
-      (Step unit
-        (patch attrs)
-        (done attrs))
-
-  patch ∷ forall eff. Attr → VDomMachine eff Attr Unit
-  patch attrs1 attrs2 = do
-    patchAttributes elem attrs1 attrs2
-    pure
-      (Step unit
-        (patch attrs2)
-        (done attrs2))
-
-  done ∷ forall eff. Attr → Eff eff Unit
-  done attrs = cleanupAttributes elem attrs
-
-mySpec document =  VDomSpec {
-      buildWidget: const never
-    , buildAttributes: buildAttributes
-    , document : document
-    }
-
--- gChildNode1 = Elem (ElemSpec (Nothing) (ElemName "linearLayout") (Attr [(Tuple "id" (AttrValue "3"))])) []
--- gChildNode2 = Elem (ElemSpec (Nothing) (ElemName "linearLayout") (Attr [(Tuple "id" (AttrValue "5"))])) []
-
--- childNode1 = Elem (ElemSpec (Nothing) (ElemName "linearLayout") (Attr [(Tuple "id" (AttrValue "2"))])) []
--- childNode2 = Elem (ElemSpec (Nothing) (ElemName "relativeLayout") (Attr [(Tuple "id" (AttrValue "2"))])) [gChildNode1, gChildNode2]
-
--- myDom1 :: forall a. Screen -> VDom Attr a
--- myDom1 sc = Elem (ElemSpec (Nothing) (ElemName "linearLayout") (Attr [
---                                                                  (Tuple "id" (AttrValue "1")),
---                                                                  (Tuple "color" (AttrValue "red")),
---                                                                  (Tuple "text" (AttrValue "hello")),
---                                                                  (Tuple "domName" (ScreenTag (encode sc))),
---                                                                  (Tuple "click" (Some onClick))
---                                                                  ]) ) [childNode2]
-
-myDom1 :: forall a. Screen -> VDom Attr a
-myDom1 sc = linearLayout
-              [ id_ "1"
-              , color "red"
-              , text "hello"
-              , domName (ScreenTag (encode sc))
-              , click (Some onClick)
-              ]
-              [ relativeLayout
-                  [ id_ "2" ]
-                  [ linearLayout
-                      [ id_ "3"]
-                      []
-                  , linearLayout
-                      [ id_ "5"]
-                      []
+widget :: forall a. StateType → VDom Attr a
+widget s = relativeLayout
+                [  id_ "1"
+                  , height "match_parent"
+                  , width "match_parent"
+                ]
+                [
+                 imageView
+                  [ id_ "background"
+                  , width "match_parent"
+                  , height "match_parent"
+                  , imageUrl "background"
+                  ],
+                  relativeLayout
+                  [
+                    id_ "gameHolder"
+                  , width "900"
+                  , height "match_parent"
+                  , centerInParent "true,-1"
                   ]
-              ]
+                  [
+                    textView
+                    [ id_ "InstructionsHeading"
+                    , width "250"
+                    , height "900"
+                    , textSize "25"
+                    , text "HOW TO PLAY :"
+                    , margin "-250, 100, 0, 0"
+                    ]
+                    ,textView
+                    [ id_ "Instructions"
+                    , width "250"
+                    , height "900"
+                    , textSize "20"
+                    , text """1. Pop as many baloons as possible using 25 arrows
+                            2.Release arrows by clicking on the bow or Pressing Space
+                            3.Move bow Up and Down by clicking above & below it or Using arrow Keys
+                            4.The game is over when you run out of arrows"""
+                    , margin "-250, 150, 0, 0"
+                    ]
+                    ,
+                    relativeLayout
+                    [ id_ "2"
+                    , height "match_parent"
+                    , width "1000"
+                    , background "#ffffff"
+                    ]
+                      ((baloonDraw s <$> s.baloon)<>
+                       (arrowDraw s <$> s.arrow)<>
+                      [
+                      textView
+                      [ id_ "Arrow Count"
+                      , width "200"
+                      , height "50"
+                      , textSize "30"
+                      , text (("Arrows :") <> (toString $ toNumber s.arrows))
+                      , margin "850, 0, 0, 0"
+                      ]
+                      ,
+                      textView
+                      [ id_ "Score Board"
+                      , text (("GAME OVER\nSCORE : \t\t") <> (toString $ toNumber s.score))
+                      , textSize "30"
+                      , width "350"
+                      , height "50"
+                      , margin (s.scorePos.x <> "," <> s.scorePos.y <> ",0,0")
+                      ]
+                      ,
+                      linearLayout
+                      [id_ "bowup"
+                      , width "50"
+                      , height "850"
+                      , onClick (Some click)
+                      , margin ( "1000,"<>(toString (toNumber (s.bow.y - 800)))<>",0,0")]
+                      [],
+                      imageView
+                      [
+                        id_ "bow"
+                      , width "50"
+                      , height "100"
+                      , onClick (Some click)
+                      , margin ( "1000,"<>(toString (toNumber s.bow.y))<>",0,0")
+                      , imageUrl "bow"
+                      ]
+                      ,linearLayout
+                      [id_ "bowdn"
+                      , width "50"
+                      , height "800"
+                      , onClick (Some click)
+                      , margin ( "1000,"<>(toString (toNumber (s.bow.y + 50)))<>",0,0")]
+                      []
+                    ])
 
--- myDom2 :: forall a. Screen -> VDom Attr a
--- myDom2 sc = Elem (ElemSpec (Nothing) (ElemName "linearLayout") (Attr [
---                                                                   (Tuple "id" (AttrValue "1")),
---                                                                   (Tuple "color" (AttrValue "blue")),
---                                                                   (Tuple "bg" (AttrValue "green")),
---                                                                   (Tuple "domName" (ScreenTag (encode sc)))
---                                                                   ]) ) []
-myDom2 :: forall a. Screen -> VDom Attr a
-myDom2 sc =
-    linearLayout
-        [ id_ "1"
-        , color "blue"
-        , bg "green"
-        , domName (ScreenTag (encode sc))
-        ]
-        []
+                  ]
+               ]
 
+baloonVal ::forall a. Int -> Eff(random :: RANDOM | a) Baloon
+baloonVal a =
+  randomInt 0 85 >>= \n ->
+    randomInt 0 85 >>= \m ->
+        pure{ x: n * 10, y: (m * 10) + 900, id: ("b" <> (toString (toNumber a))), image: "baloon",popped: false}
 
-myDom3 :: forall a. Screen -> VDom Attr a
-myDom3 sc = Elem (ElemSpec (Nothing) (ElemName "linearLayout") (Attr [
-                                                                   (Tuple "id" (AttrValue "1"))
-                                                                   ])) []
+arrowVal :: Int -> Arrow
+arrowVal a = {x:1000,y:320,id:"a"<>(toString (toNumber a)),shot:false}
+
+arrowSot :: String -> Arrow -> Arrow
+arrowSot check a
+  | a.id == check = a{shot=true }
+  | otherwise = a
+
+arrowYUpdater :: Int -> Arrow -> Arrow
+arrowYUpdater bowY a
+  | a.shot = a
+  | otherwise = a{y=bowY}
+
+--traverse :: ∀ a b m t. Traversable t ⇒ Applicative m ⇒ (a → m b) → t a → m (t b)
+resetGame :: forall a b. Eff(random :: RANDOM, console :: CONSOLE | a) { |b }
+resetGame = do
+  (s::StateType) <- U.getState
+  a <- (traverse baloonVal (1 .. baloonCount))
+  _ <- U.updateState "baloon" a
+  _ <- U.updateState "arrow" (arrowVal <$> (1.. arrowCount))
+  _ <- U.updateState "shotCount" 0
+  _ <- U.updateState "score" 0
+  _ <- U.updateState "arrows" arrowCount
+  _ <- U.updateState "scorePos" {x: "0", y:"-30"}
+  logShow 23
+  U.updateState "bow" {y: 320}
+
+main :: forall a. Eff(random :: RANDOM, console :: CONSOLE, frp ::FRP, dom ::DOM |a) Unit
 main = do
-  root <- getRootNode
-
-  let ev1 = attachSub (encode $ FirstScreen 0)
-  _ <- (subscribe ev1 (\c -> log $ show $ c.id))
-  machine1 <- buildVDom (mySpec root) (myDom1 (FirstScreen 0))
-
-  insertDom root (extract machine1)
-
-  machine2 <- step machine1 (myDom2 (SecondScreen 0))
-  machine3 <- step machine2 (myDom3 (SecondScreen 0))
-
-  logMy (extract machine3)
-
+  U.initializeState
+  state <- resetGame
+  U.render (widget state) listen
   pure unit
+
+baloonCollision :: Baloon -> Arrow -> Baloon
+baloonCollision bal arr
+  | (((bal.x > arr.x) && (bal.x < (arr.x + arrowWidth)))
+    || ((arr.x > bal.x) && (arr.x < (bal.x + baloonWidth))))
+    && ((bal.y < (arr.y + 47))
+    && ((bal.y + baloonHeight) > (arr.y + 47))) = bal { y= 900,image = "empty",popped = true}
+  | bal.y < -100  = bal {y = 900}
+  | bal.y <  900  = bal { y= (bal.y - baloonSpeed), image = "baloon", popped = false}
+  | otherwise = bal{y = (bal.y - baloonSpeed)}
+
+arrowShoot :: Arrow -> Arrow
+arrowShoot a
+  |a.shot = a {x = a.x - arrowSpeed}
+  |otherwise = a
+
+scoreUpdater:: Baloon -> Int
+scoreUpdater a
+  | a.popped = 10
+  | otherwise = 0
+
+randomizeBaloonRespawn :: forall a. StateType -> Baloon -> Eff(random :: RANDOM | a) Baloon
+randomizeBaloonRespawn s bal
+  | s.arrows == 0 && bal.y == 900 = pure {x: bal.x , y: -200, id: bal.id,image : bal.image, popped : false}
+  | bal.y == 900  = randomInt 0 85 >>= \n -> pure {x: (n * 10) , y: (bal.y - baloonSpeed), id: bal.id,image : "baloon", popped : false}
+  | otherwise     = pure bal
+
+
+continousEvaluation :: forall t50 t51. Boolean → Eff (random :: RANDOM|t50) { | t51 }
+continousEvaluation l = do
+  (s :: StateType) <- U.getState
+  e <- (traverse (randomizeBaloonRespawn s) s.baloon)
+  let c = sortBy baloonSort (baloonCollision <$> e <*> s.arrow)
+  let d = nubBy baloonEqual c
+  let f = foldl (+) s.score (scoreUpdater <$> d)
+  (s :: StateType) <- U.updateState "baloon" d
+  (s :: StateType) <- U.updateState "score" f
+  _ <- U.updateState "arrow" (arrowShoot <$> s.arrow)
+  if s.arrows == 0
+    then
+      U.updateState "scorePos" {x: "440", y: "300"}
+    else
+      U.updateState "scorePos" s.scorePos
+
+shotEvaluation :: forall a b. Boolean -> Eff a { | b }
+shotEvaluation l = do
+  (s :: StateType) <- U.getState
+  if (l) && (s.arrows /= 0)
+    then do
+      _ <- U.updateState "shotCount" (s.shotCount + 1)
+      _ <- U.updateState "arrows" (s.arrows - 1)
+      U.updateState "arrow" ((arrowSot ("a"<> (toString $ toNumber s.shotCount))) <$> s.arrow)
+    else
+      U.updateState "showCount" (s.shotCount)
+
+bowMoverUpEvaluation :: forall a b. Boolean -> Eff a { | b }
+bowMoverUpEvaluation l=do
+  (s :: StateType) <- U.getState
+  if (l)
+    then do
+      (s :: StateType) <- U.updateState "bow" {y:(s.bow.y - 20)}
+      U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
+    else
+      U.updateState "bow" s.arrow
+
+bowMoverDownEvaluation :: forall a b. Boolean -> Eff a { | b }
+bowMoverDownEvaluation l=do
+  (s :: StateType) <- U.getState
+  if (l)
+    then do
+      (s :: StateType) <- U.updateState "bow" {y:(s.bow.y + 20)}
+      U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
+    else
+      U.updateState "bow" s.bow
+
+keyboardEvaluation :: forall a b. Boolean -> Boolean -> Boolean -> Eff a { | b }
+keyboardEvaluation a b c = do
+  (s :: StateType) <- U.getState
+  _ <- if (a) && (s.arrows /= 0)
+      then do
+        _ <- U.updateState "shotCount" (s.shotCount + 1)
+        _ <- U.updateState "arrows" (s.arrows - 1)
+        U.updateState "arrow" ((arrowSot ("a"<> (toString $ toNumber s.shotCount))) <$> s.arrow)
+      else
+        U.updateState "showCount" (s.shotCount)
+  _ <- if (b)
+        then do
+          (s :: StateType) <- U.updateState "bow" {y:(s.bow.y - 20)}
+          U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
+        else
+          U.updateState "bow" s.bow
+  if (c)
+    then do
+      (s :: StateType) <- U.updateState "bow" {y:(s.bow.y + 20)}
+      U.updateState "arrow" ((arrowYUpdater s.bow.y) <$> s.arrow)
+    else
+      U.updateState "bow" s.bow
+
+
+listen :: forall t133. Eff ( random::RANDOM,frp ∷ FRP , console ∷ CONSOLE | t133 ) (Eff (random::RANDOM, frp ∷ FRP , console ∷ CONSOLE | t133 ) Unit )
+listen = do
+  (state :: StateType) <- resetGame
+  shoot <- U.signal "bow" false
+  btnUp <- U.signal "bowup" false
+  btnDn <- U.signal "bowdn" false
+
+  let keyboardBehavior = keyboardEvaluation <$> (key 32) <*> (key 38) <*> (key 40)
+
+  let behavior = continousEvaluation <$> shoot.behavior
+  let behavior0 = shotEvaluation <$> shoot.behavior
+  let behavior1 = bowMoverUpEvaluation <$> btnUp.behavior
+  let behavior2 = bowMoverDownEvaluation <$> btnDn.behavior
+
+  _ <- U.patch widget keyboardBehavior K.down
+  _ <- U.patch widget behavior0 shoot.event
+  _ <- U.patch widget behavior1 btnUp.event
+  _ <- U.patch widget behavior2 btnDn.event
+  U.patch widget behavior animationFrame
