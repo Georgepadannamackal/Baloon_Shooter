@@ -1,14 +1,16 @@
 window.SUBS = {};
 
+var $Types = require("../PrestoDOM.Types")
+var $Maybe = require("../Data.Maybe")
+
 function attachAttributeList(element, attrList) {
   var key, value;
 
   for (var i = 0; i < attrList.length; i++) {
     key = attrList[i].value0;
-    value = attrList[i].value1.value0;
-
+    value = attrList[i].value1;
     if (typeof value == "function") {
-      attachListener(element, key);
+      attachListener(element, key, value);
     } else {
       element.props[key] = value;
     }
@@ -17,13 +19,22 @@ function attachAttributeList(element, attrList) {
   return null;
 }
 
-function attachListener(element, eventType) {
-  window.SUBS[element.props.id] = {};
-  window.SUBS[element.props.id]["eventType"] = eventType;
-
-  element.props[eventType] = function(value){
-    window.SUBS[element.props.id]["fn"](value, element.props);
+function attachListener(element, eventType, value) {
+  if (!element.props.name) {
+    throw Error("Define name on a node with an event");
   }
+  // window.SUBS[element.props.name] = {};
+  element.props[eventType] = function(e) {
+    // TODO : FIX THIS
+    if (eventType == "onChange") {
+      value(e)();
+    }
+    else
+      value(true)();
+  }
+  // element.props[eventType] = function(value) {
+  //   window.SUBS[element.props.name][eventType](value, element.props);
+  // }
 }
 
 exports.applyAttributes = function(element) {
@@ -47,8 +58,8 @@ exports.patchAttributes = function(element) {
             if (oldAttrList[i].value0 == newAttrList[j].value0) {
               attrFound = 1;
 
-              if (oldAttrList[i].value1.value0 !== newAttrList[j].value1.value0) {
-                oldAttrList[i].value1.value0 = newAttrList[j].value1.value0;
+              if (oldAttrList[i].value1 !== newAttrList[j].value1) {
+                oldAttrList[i].value1 = newAttrList[j].value1;
                 updateAttribute(element, newAttrList[j]);
               }
             }
@@ -119,13 +130,18 @@ exports.getRootNode = function() {
 
 exports.insertDom = window.insertDom;
 
-exports.attachSignalEvents = function(id) {
-  return function(sub) {
-    window.SUBS[id].fn = function(value, props) {
-      sub(value)();
+exports.attachSignalEvents = function(name) {
+  return function (eventType) {
+    return function (sub) {
+      window.SUBS[name][eventType] = function (value, props) {
+        var result = {
+          value: new $Types.ValueS(value),
+          props: new $Types.Props(props)
+        };
+        sub(new $Maybe.Just(result))();
+      }
+      return null;
     }
-
-    return null;
   }
 }
 
@@ -137,9 +153,8 @@ exports.initializeState = function() {
 
 exports.updateState = function(key) {
   return function(value) {
-     return function() {
+    return function() {
       window.APP_STATE[key] = value;
-      console.log("APP STATE",window.APP_STATE)
 
       return window.APP_STATE;
     }
